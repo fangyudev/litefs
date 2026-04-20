@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteFS 快速入门示例</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1 { color: #333; text-align: center; }
+        h2 { margin-top: 0; color: #666; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        h3 { color: #888; margin: 15px 0 10px; }
+        .section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .preview { max-width: 100%; max-height: 300px; margin: 10px 0; border-radius: 4px; }
+        .code { background: #f8f8f8; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 12px; word-break: break-all; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input[type="file"] { margin: 10px 0; }
+        input[type="text"], input[type="number"], select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        .form-row { display: flex; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+        .form-row label { min-width: 100px; }
+        .progress { width: 100%; height: 20px; background: #eee; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 100%; background: #007bff; transition: width 0.3s; }
+        .file-list { list-style: none; padding: 0; }
+        .file-list li { padding: 10px; border-bottom: 1px solid #eee; }
+        .file-list li:hover { background: #f8f8f8; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .file-info { flex: 1; min-width: 200px; }
+        .file-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .tabs { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab.active { border-bottom-color: #007bff; color: #007bff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info-box { background: #e7f3ff; border-left: 4px solid #007bff; padding: 10px; margin: 10px 0; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal.show { display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .modal-header h3 { margin: 0; }
+        .modal-close { font-size: 24px; cursor: pointer; }
+        .modal-body { margin-bottom: 15px; }
+        .modal-footer { text-align: right; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 5px; }
+        .badge-private { background: #f8d7da; color: #721c24; }
+        .badge-public { background: #d4edda; color: #155724; }
+        .badge-temporary { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>LiteFS 快速入门示例</h1>
+
+    <!-- 简单上传 -->
+    <div class="section">
+        <h2>1. 简单上传（适合小文件）</h2>
+        <div class="info-box">
+            <strong>说明：</strong>适用于5MB以下的文件，整个文件读入内存后上传。
+        </div>
+        <input type="file" id="simpleFileInput">
+        <div class="form-row">
+            <label>文件分类：</label>
+            <input type="text" id="uploadCategory" placeholder="可选">
+        </div>
+        <div class="form-row">
+            <label>访问权限：</label>
+            <select id="uploadVisibility">
+                <option value="private">私有（需签名访问）</option>
+                <option value="public">公开（永久公开）</option>
+                <option value="temporary">临时（限时公开）</option>
+            </select>
+            <input type="number" id="uploadExpireSeconds" placeholder="过期秒数" style="display:none;" value="3600">
+        </div>
+        <div class="form-row">
+            <label>生成缩略图：</label>
+            <select id="uploadThumbnail">
+                <option value="">默认</option>
+                <option value="true">是</option>
+                <option value="false">否</option>
+            </select>
+        </div>
+        <button onclick="simpleUpload()">上传</button>
+        <div id="simpleUploadResult"></div>
+    </div>
+
+    <!-- 分片上传 -->
+    <div class="section">
+        <h2>2. 分片上传（适合大文件）</h2>
+        <div class="info-box">
+            <strong>说明：</strong>适用于大文件，前端分片后并行上传，支持断点续传。
+        </div>
+        <input type="file" id="multipartFileInput">
+        <div class="progress" id="multipartProgress" style="display:none;">
+            <div class="progress-bar" id="multipartProgressBar" style="width: 0%"></div>
+        </div>
+        <button onclick="multipartUpload()">分片上传</button>
+        <div id="multipartUploadResult"></div>
+    </div>
+
+    <!-- 文件列表 -->
+    <div class="section">
+        <h2>3. 文件列表</h2>
+        <div class="form-row">
+            <input type="text" id="searchFileName" placeholder="文件名搜索">
+            <input type="text" id="searchContentType" placeholder="类型搜索">
+            <button onclick="loadFileList()">搜索</button>
+        </div>
+        <ul class="file-list" id="fileList"></ul>
+    </div>
+
+    <!-- URL生成 -->
+    <div class="section">
+        <h2>4. URL 生成</h2>
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('signed')">临时URL</div>
+            <div class="tab" onclick="showTab('permanent')">永久URL</div>
+            <div class="tab" onclick="showTab('download')">下载URL</div>
+            <div class="tab" onclick="showTab('thumbnail')">缩略图URL</div>
+        </div>
+        
+        <div id="signed" class="tab-content active">
+            <div class="info-box">
+                <strong>说明：</strong>临时URL会在指定时间后过期，适合需要权限控制的场景。
+            </div>
+            <div class="form-row">
+                <input type="text" id="signedFileId" placeholder="文件ID" style="width: 300px;">
+                <input type="number" id="signedExpire" value="3600" placeholder="过期秒数" style="width: 120px;">
+                <button onclick="getSignedUrl()">生成URL</button>
+            </div>
+            <div id="signedResult"></div>
+        </div>
+        
+        <div id="permanent" class="tab-content">
+            <div class="info-box">
+                <strong>说明：</strong>永久URL，不会过期。
+            </div>
+            <div class="form-row">
+                <input type="text" id="permanentFileId" placeholder="文件ID" style="width: 300px;">
+                <button onclick="getPermanentUrl()">生成URL</button>
+            </div>
+            <div id="permanentResult"></div>
+        </div>
+        
+        <div id="download" class="tab-content">
+            <div class="info-box">
+                <strong>说明：</strong>下载URL会触发浏览器下载行为。
+            </div>
+            <div class="form-row">
+                <input type="text" id="downloadFileId" placeholder="文件ID" style="width: 300px;">
+                <button onclick="getDownloadUrl()">生成URL</button>
+            </div>
+            <div id="downloadResult"></div>
+        </div>
+        
+        <div id="thumbnail" class="tab-content">
+            <div class="info-box">
+                <strong>说明：</strong>缩略图URL，仅对图片类型文件有效。
+            </div>
+            <div class="form-row">
+                <input type="text" id="thumbnailFileId" placeholder="文件ID" style="width: 300px;">
+                <button onclick="getThumbnailUrl()">生成URL</button>
+            </div>
+            <div id="thumbnailResult"></div>
+        </div>
+    </div>
+
+    <!-- 重命名模态框 -->
+    <div class="modal" id="renameModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>重命名文件</h3>
+                <span class="modal-close" onclick="closeModal('renameModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="renameFileId">
+                <input type="text" id="renameFileName" style="width: 100%;" placeholder="新文件名">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('renameModal')">取消</button>
+                <button class="btn-success" onclick="doRename()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 权限设置模态框 -->
+    <div class="modal" id="visibilityModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>设置访问权限</h3>
+                <span class="modal-close" onclick="closeModal('visibilityModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="visibilityFileId">
+                <div class="form-row">
+                    <label>权限类型：</label>
+                    <select id="visibilityType" onchange="toggleExpireInput()">
+                        <option value="PRIVATE">私有（需签名访问）</option>
+                        <option value="PUBLIC">公开（永久公开）</option>
+                        <option value="TEMPORARY">临时（限时公开）</option>
+                    </select>
+                </div>
+                <div class="form-row" id="expireRow" style="display:none;">
+                    <label>过期秒数：</label>
+                    <input type="number" id="visibilityExpire" value="3600">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('visibilityModal')">取消</button>
+                <button class="btn-success" onclick="doUpdateVisibility()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 元数据模态框 -->
+    <div class="modal" id="metadataModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>查看/编辑元数据</h3>
+                <span class="modal-close" onclick="closeModal('metadataModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="metadataFileId">
+                <div id="metadataContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal('metadataModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/files';
+        const PART_SIZE = 5 * 1024 * 1024;
+
+        // 权限选择变化
+        document.getElementById('uploadVisibility').addEventListener('change', function() {
+            document.getElementById('uploadExpireSeconds').style.display = 
+                this.value === 'temporary' ? 'inline-block' : 'none';
+        });
+
+        // 简单上传
+        async function simpleUpload() {
+            const fileInput = document.getElementById('simpleFileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const category = document.getElementById('uploadCategory').value;
+            const visibility = document.getElementById('uploadVisibility').value;
+            const expireSeconds = document.getElementById('uploadExpireSeconds').value;
+            const thumbnail = document.getElementById('uploadThumbnail').value;
+            
+            if (category) formData.append('category', category);
+            if (visibility) formData.append('visibility', visibility);
+            if (visibility === 'temporary' && expireSeconds) formData.append('expireSeconds', expireSeconds);
+            if (thumbnail) formData.append('generateThumbnail', thumbnail);
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                document.getElementById('simpleUploadResult').innerHTML = `
+                    <p class="success">上传成功！</p>
+                    <p>文件ID: <code>${result.fileId}</code></p>
+                    <p>文件名: ${result.fileName}</p>
+                `;
+                loadFileList();
+            } catch (error) {
+                document.getElementById('simpleUploadResult').innerHTML = `
+                    <p class="error">上传失败: ${error.message}</p>
+                `;
+            }
+        }
+
+        // 分片上传
+        async function multipartUpload() {
+            const fileInput = document.getElementById('multipartFileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+
+            const progressBar = document.getElementById('multipartProgressBar');
+            const progressContainer = document.getElementById('multipartProgress');
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            try {
+                const initResponse = await fetch(`${API_BASE}/multipart/init?fileName=${encodeURIComponent(file.name)}&fileSize=${file.size}`, {
+                    method: 'POST'
+                });
+                const { uploadId } = await initResponse.json();
+
+                const totalParts = Math.ceil(file.size / PART_SIZE);
+                const parts = [];
+
+                for (let i = 0; i < totalParts; i++) {
+                    const start = i * PART_SIZE;
+                    const end = Math.min(start + PART_SIZE, file.size);
+                    const partBlob = file.slice(start, end);
+
+                    const formData = new FormData();
+                    formData.append('file', partBlob);
+
+                    const partResponse = await fetch(`${API_BASE}/multipart/${uploadId}/part/${i + 1}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const { eTag } = await partResponse.json();
+                    parts.push({ partNumber: i + 1, eTag });
+
+                    const progress = ((i + 1) / totalParts * 100).toFixed(0);
+                    progressBar.style.width = progress + '%';
+                }
+
+                const completeResponse = await fetch(`${API_BASE}/multipart/${uploadId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parts)
+                });
+                const result = await completeResponse.json();
+
+                document.getElementById('multipartUploadResult').innerHTML = `
+                    <p class="success">分片上传成功！</p>
+                    <p>文件ID: <code>${result.fileId}</code></p>
+                    <p>文件大小: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p>分片数量: ${totalParts}</p>
+                `;
+                loadFileList();
+            } catch (error) {
+                document.getElementById('multipartUploadResult').innerHTML = `
+                    <p class="error">分片上传失败: ${error.message}</p>
+                `;
+            }
+        }
+
+        // 加载文件列表
+        async function loadFileList() {
+            const fileName = document.getElementById('searchFileName').value;
+            const contentType = document.getElementById('searchContentType').value;
+            
+            let url = API_BASE + '?';
+            if (fileName) url += `fileName=${encodeURIComponent(fileName)}&`;
+            if (contentType) url += `contentType=${encodeURIComponent(contentType)}&`;
+            
+            try {
+                const response = await fetch(url);
+                const files = await response.json();
+                
+                const listHtml = files.map(file => {
+                    const visibility = file.visibility || 'PRIVATE';
+                    const badgeClass = visibility.toLowerCase();
+                    const visibilityText = { PRIVATE: '私有', PUBLIC: '公开', TEMPORARY: '临时' }[visibility];
+                    
+                    let expireInfo = '';
+                    if (visibility === 'TEMPORARY' && file.expireTime) {
+                        const remaining = Math.max(0, Math.floor((file.expireTime - Date.now()) / 1000));
+                        expireInfo = remaining > 0 ? `剩余 ${remaining} 秒` : '已过期';
+                    }
+                    
+                    return `
+                    <li>
+                        <div class="file-item">
+                            <div class="file-info">
+                                <strong>${file.fileName || 'unnamed'}</strong>
+                                <span class="badge badge-${badgeClass}">${visibilityText}</span>
+                                ${expireInfo ? `<small style="color:#856404;">${expireInfo}</small>` : ''}
+                                <br>
+                                <small>ID: ${file.id} | 大小: ${(file.fileSize / 1024).toFixed(2)} KB</small>
+                            </div>
+                            <div class="file-actions">
+                                <button class="btn-small" onclick="copyFileId('${file.id}')">复制ID</button>
+                                <button class="btn-small btn-success" onclick="downloadFile('${file.id}')">下载</button>
+                                <button class="btn-small btn-warning" onclick="copyFile('${file.id}')">复制</button>
+                                <button class="btn-small btn-warning" onclick="showRenameModal('${file.id}', '${file.fileName || ''}')">重命名</button>
+                                <button class="btn-small btn-warning" onclick="showVisibilityModal('${file.id}', '${visibility}')">权限</button>
+                                <button class="btn-small" onclick="showMetadata('${file.id}')">元数据</button>
+                                <button class="btn-small btn-danger" onclick="deleteFile('${file.id}')">删除</button>
+                            </div>
+                        </div>
+                    </li>
+                `}).join('');
+                
+                document.getElementById('fileList').innerHTML = listHtml || '<li>暂无文件</li>';
+            } catch (error) {
+                document.getElementById('fileList').innerHTML = '<li>加载失败</li>';
+            }
+        }
+
+        // 复制文件ID
+        function copyFileId(fileId) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(fileId).then(() => {
+                    alert('已复制: ' + fileId);
+                }).catch(() => {
+                    fallbackCopy(fileId);
+                });
+            } else {
+                fallbackCopy(fileId);
+            }
+        }
+
+        // 剪贴板降级方案（兼容非安全上下文）
+        function fallbackCopy(text) {
+            var textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                alert('已复制: ' + text);
+            } catch (e) {
+                alert('复制失败，请手动复制: ' + text);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // 下载文件
+        function downloadFile(fileId) {
+            window.open(`${API_BASE}/${fileId}/download`, '_blank');
+        }
+
+        // 复制文件
+        async function copyFile(fileId) {
+            if (!confirm('确定要复制此文件吗？')) return;
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/copy?replicate=false`, { method: 'POST' });
+                const result = await response.json();
+                alert('复制成功！新文件ID: ' + result.fileId);
+                loadFileList();
+            } catch (error) {
+                alert('复制失败: ' + error.message);
+            }
+        }
+
+        // 删除文件
+        async function deleteFile(fileId) {
+            if (!confirm('确定删除？')) return;
+            try {
+                await fetch(`${API_BASE}/${fileId}`, { method: 'DELETE' });
+                loadFileList();
+            } catch (error) {
+                alert('删除失败');
+            }
+        }
+
+        // 显示Tab
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // 获取签名URL
+        async function getSignedUrl() {
+            const fileId = document.getElementById('signedFileId').value;
+            const expire = document.getElementById('signedExpire').value || 3600;
+            if (!fileId) { alert('请输入文件ID'); return; }
+
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/url?expire=${expire}`);
+                const { url, expireSeconds } = await response.json();
+                document.getElementById('signedResult').innerHTML = `
+                    <p class="success">生成成功！</p>
+                    <p>签名URL（${expireSeconds}秒后过期）：</p>
+                    <div class="code">${url}</div>
+                    <img src="${url}" class="preview" onerror="this.style.display='none'">
+                `;
+            } catch (error) {
+                alert('获取URL失败: ' + error.message);
+            }
+        }
+
+        // 获取永久URL
+        async function getPermanentUrl() {
+            const fileId = document.getElementById('permanentFileId').value;
+            if (!fileId) { alert('请输入文件ID'); return; }
+
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/url`);
+                const { url } = await response.json();
+                document.getElementById('permanentResult').innerHTML = `
+                    <p class="success">生成成功！</p>
+                    <p>永久URL：</p>
+                    <div class="code">${url}</div>
+                    <img src="${url}" class="preview" onerror="this.style.display='none'">
+                `;
+            } catch (error) {
+                alert('获取URL失败: ' + error.message);
+            }
+        }
+
+        // 获取下载URL
+        async function getDownloadUrl() {
+            const fileId = document.getElementById('downloadFileId').value;
+            if (!fileId) { alert('请输入文件ID'); return; }
+
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/url?download=true`);
+                const { url } = await response.json();
+                document.getElementById('downloadResult').innerHTML = `
+                    <p class="success">生成成功！</p>
+                    <p>下载URL：</p>
+                    <div class="code">${url}</div>
+                    <a href="${url}" target="_blank">点击下载</a>
+                `;
+            } catch (error) {
+                alert('获取URL失败: ' + error.message);
+            }
+        }
+
+        // 获取缩略图URL
+        async function getThumbnailUrl() {
+            const fileId = document.getElementById('thumbnailFileId').value;
+            if (!fileId) { alert('请输入文件ID'); return; }
+
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/thumbnail-url`);
+                if (!response.ok) {
+                    document.getElementById('thumbnailResult').innerHTML = `<p class="error">该文件没有缩略图</p>`;
+                    return;
+                }
+                const { url } = await response.json();
+                document.getElementById('thumbnailResult').innerHTML = `
+                    <p class="success">生成成功！</p>
+                    <p>缩略图URL：</p>
+                    <div class="code">${url}</div>
+                    <img src="${url}" class="preview">
+                `;
+            } catch (error) {
+                alert('获取URL失败: ' + error.message);
+            }
+        }
+
+        // 显示重命名模态框
+        function showRenameModal(fileId, fileName) {
+            document.getElementById('renameFileId').value = fileId;
+            document.getElementById('renameFileName').value = fileName;
+            document.getElementById('renameModal').classList.add('show');
+        }
+
+        // 执行重命名
+        async function doRename() {
+            const fileId = document.getElementById('renameFileId').value;
+            const newFileName = document.getElementById('renameFileName').value;
+            if (!newFileName) { alert('请输入新文件名'); return; }
+
+            try {
+                await fetch(`${API_BASE}/${fileId}/name`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newFileName })
+                });
+                closeModal('renameModal');
+                loadFileList();
+            } catch (error) {
+                alert('重命名失败: ' + error.message);
+            }
+        }
+
+        // 显示权限设置模态框
+        function showVisibilityModal(fileId, visibility) {
+            document.getElementById('visibilityFileId').value = fileId;
+            document.getElementById('visibilityType').value = visibility;
+            toggleExpireInput();
+            document.getElementById('visibilityModal').classList.add('show');
+        }
+
+        // 切换过期时间输入框
+        function toggleExpireInput() {
+            const type = document.getElementById('visibilityType').value;
+            document.getElementById('expireRow').style.display = type === 'TEMPORARY' ? 'flex' : 'none';
+        }
+
+        // 执行权限更新
+        async function doUpdateVisibility() {
+            const fileId = document.getElementById('visibilityFileId').value;
+            const visibility = document.getElementById('visibilityType').value;
+            const expireSeconds = document.getElementById('visibilityExpire').value;
+
+            try {
+                await fetch(`${API_BASE}/${fileId}/visibility`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        visibility, 
+                        expireSeconds: visibility === 'TEMPORARY' ? parseInt(expireSeconds) : null 
+                    })
+                });
+                closeModal('visibilityModal');
+                loadFileList();
+            } catch (error) {
+                alert('更新失败: ' + error.message);
+            }
+        }
+
+        // 显示元数据
+        async function showMetadata(fileId) {
+            try {
+                const response = await fetch(`${API_BASE}/${fileId}/metadata`);
+                const metadata = await response.json();
+                
+                let html = `<p><strong>文件ID:</strong> ${metadata.id}</p>`;
+                html += `<p><strong>文件名:</strong> ${metadata.fileName}</p>`;
+                html += `<p><strong>类型:</strong> ${metadata.contentType}</p>`;
+                html += `<p><strong>大小:</strong> ${metadata.fileSize} bytes</p>`;
+                html += `<p><strong>状态:</strong> ${metadata.status}</p>`;
+                html += `<p><strong>权限:</strong> ${metadata.visibility || 'PRIVATE'}</p>`;
+                if (metadata.expireTime) {
+                    html += `<p><strong>过期时间:</strong> ${new Date(metadata.expireTime).toLocaleString()}</p>`;
+                }
+                if (metadata.thumbnailId) {
+                    html += `<p><strong>缩略图ID:</strong> ${metadata.thumbnailId}</p>`;
+                }
+                if (metadata.metadata && Object.keys(metadata.metadata).length > 0) {
+                    html += `<p><strong>自定义元数据:</strong></p><pre>${JSON.stringify(metadata.metadata, null, 2)}</pre>`;
+                }
+                
+                document.getElementById('metadataContent').innerHTML = html;
+                document.getElementById('metadataModal').classList.add('show');
+            } catch (error) {
+                alert('获取元数据失败: ' + error.message);
+            }
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // 点击模态框外部关闭
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // 页面加载时获取文件列表
+        loadFileList();
+    </script>
+</body>
+</html>

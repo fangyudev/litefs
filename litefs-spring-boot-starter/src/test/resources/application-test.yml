@@ -1,0 +1,21 @@
+spring:
+  main:
+    banner-mode: off
+
+litefs:
+  enabled: true
+  node-id: test-node-springboot
+  storage:
+    type: local
+    path: ./target/test-storage-springboot
+    metadata-type: h2
+    jdbc-url: jdbc:h2:./target/test-litefs-springboot;AUTO_SERVER=TRUE
+  access:
+    url-type: gateway
+    gateway:
+      base-url: http://localhost:8080
+      path-prefix: /api/files
+    signed:
+      enabled: true
+      secret-key: test-secret-key-for-springboot
+      default-expire: 3600
