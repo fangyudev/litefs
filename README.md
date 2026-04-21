@@ -102,7 +102,7 @@ LiteFS 提供完整的示例项目，启动后即可通过 Web 界面体验文�
 
 ```bash
 # 克隆代码
-git clone https://github.com/fangyudev/litefs.git
+git clone https://gitee.com/fangyudev/litefs.git
 cd litefs
 
 # 编译安装到本地 Maven 仓库
