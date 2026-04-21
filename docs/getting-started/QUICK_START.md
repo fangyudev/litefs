@@ -108,6 +108,19 @@ public class FileService {
 }
 ```
 
+## 运行示例项目
+
+克隆代码后可直接运行示例项目体验完整功能：
+
+```bash
+cd litefs-example
+mvn spring-boot:run
+```
+
+启动成功后，浏览器访问 `http://localhost:8080/quickstart/index.html`，即可看到如下示例界面：
+
+![示例界面](../images/screencapture-example.png)
+
 ## 下一步
 
 - [安装和配置](INSTALLATION.md) - 详细的安装配置说明
