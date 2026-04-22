@@ -1,6 +1,15 @@
 # LiteFS
 
- 轻量级分布式文件存储组件，为微服务架构而生
+轻量级分布式文件存储组件，为微服务架构而生
+
+---
+
+## 🌐 选择语言 / Choose Language
+
+- [中文](README.md)
+- [English](README_en.md)
+
+---
 
 ## 💡 缘起
 
@@ -103,6 +112,9 @@ LiteFS 提供完整的示例项目，启动后即可通过 Web 界面体验文�
 ```bash
 # 克隆代码
 git clone https://github.com/fangyudev/litefs.git
+# 或者
+git clone https://gitee.com/fangyudev/litefs.git
+
 cd litefs
 
 # 编译安装到本地 Maven 仓库
