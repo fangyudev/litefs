@@ -1,6 +1,7 @@
 # LiteFS
 
-A lightweight distributed file storage component built for microservices architecture.
+LiteFS is a lightweight distributed file storage component. Most mainstream open-source distributed storage solutions suffer from commercial license restrictions, cumbersome deployment and complex operation and maintenance. Born for this scenario, LiteFS fills the gap in the open-source ecosystem for a distributed file system with commercial-friendly licensing, lightweight design and easy maintenance.
+
 
 ---
 
